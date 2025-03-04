@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { promises as fsPromises } from 'fs';
-import { existsSync } from 'fs';
+import { existsSync, createReadStream } from 'fs';
 import path from 'path';
 
 // Map file extensions to MIME types
@@ -25,10 +25,12 @@ export async function GET(request: NextRequest) {
     
     if (!filename) {
       console.error('No filename provided in query parameters');
-      return NextResponse.json(
-        { error: 'No filename provided' },
-        { status: 400 }
-      );
+      return new NextResponse('No filename provided', { 
+        status: 400,
+        headers: {
+          'Content-Type': 'text/plain',
+        }
+      });
     }
     
     console.log(`Serving image: ${filename}`);
@@ -43,10 +45,12 @@ export async function GET(request: NextRequest) {
     // Check if the file exists
     if (!existsSync(filePath)) {
       console.error(`File not found: ${filePath}`);
-      return NextResponse.json(
-        { error: `File not found: ${filename}` },
-        { status: 404 }
-      );
+      return new NextResponse(`File not found: ${filename}`, { 
+        status: 404,
+        headers: {
+          'Content-Type': 'text/plain',
+        }
+      });
     }
     
     try {
@@ -68,21 +72,39 @@ export async function GET(request: NextRequest) {
           'Pragma': 'no-cache',
           'Expires': '0',
           'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET',
+          'Access-Control-Allow-Methods': 'GET, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          'Cross-Origin-Resource-Policy': 'cross-origin',
         },
       });
     } catch (readError) {
       console.error(`Error reading file ${filename}:`, readError);
-      return NextResponse.json(
-        { error: `Error reading file: ${(readError as Error).message}` },
-        { status: 500 }
-      );
+      return new NextResponse(`Error reading file: ${(readError as Error).message}`, { 
+        status: 500,
+        headers: {
+          'Content-Type': 'text/plain',
+        }
+      });
     }
   } catch (error) {
     console.error('Error serving image:', error);
-    return NextResponse.json(
-      { error: `Internal server error: ${(error as Error).message}` },
-      { status: 500 }
-    );
+    return new NextResponse(`Internal server error: ${(error as Error).message}`, { 
+      status: 500,
+      headers: {
+        'Content-Type': 'text/plain',
+      }
+    });
   }
+}
+
+// Add OPTIONS handler for CORS preflight requests
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, {
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Max-Age': '86400',
+    },
+  });
 } 

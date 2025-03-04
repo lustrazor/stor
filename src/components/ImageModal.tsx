@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useState, useRef } from 'react';
 
 interface ImageModalProps {
   src: string | null;
@@ -12,7 +12,22 @@ export default function ImageModal({ src, onClose, onNext, onPrev }: ImageModalP
   const [imageError, setImageError] = useState<string | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [useIframe, setUseIframe] = useState(false);
+  const [useBlobUrl, setUseBlobUrl] = useState(false);
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
+  
   console.log('ImageModal rendering with src:', src);
+
+  // Clean up any object URLs when the component unmounts
+  useEffect(() => {
+    return () => {
+      if (objectUrl) {
+        console.log('Revoking object URL:', objectUrl);
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [objectUrl]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') onClose();
@@ -20,11 +35,59 @@ export default function ImageModal({ src, onClose, onNext, onPrev }: ImageModalP
     if (e.key === 'ArrowLeft' && onPrev) onPrev();
   }, [onClose, onNext, onPrev]);
 
+  // Load the image via fetch and create an object URL
+  const loadImageAsObjectUrl = useCallback(async (url: string) => {
+    try {
+      console.log('Fetching image from URL:', url);
+      setImageError(null);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      
+      const blob = await response.blob();
+      console.log('Received blob:', blob.type, 'size:', blob.size);
+      
+      if (blob.size === 0) {
+        throw new Error('Empty response received');
+      }
+      
+      // Revoke any existing object URL
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+      
+      // Create a new object URL
+      const newObjectUrl = URL.createObjectURL(blob);
+      console.log('Created object URL:', newObjectUrl);
+      setObjectUrl(newObjectUrl);
+      setFullImageUrl(newObjectUrl);
+      setUseBlobUrl(true);
+      
+      return true;
+    } catch (error) {
+      console.error('Error loading image via fetch:', error);
+      setImageError(`Failed to load image: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
+  }, [objectUrl]);
+
   useEffect(() => {
     console.log('ImageModal mounted/updated with src:', src);
     setImageError(null); // Reset error state when src changes
     setImageLoaded(false);
     setRetryCount(0);
+    setUseIframe(false);
+    setUseBlobUrl(false);
     
     // Convert relative path to absolute URL if src exists
     if (src) {
@@ -35,7 +98,16 @@ export default function ImageModal({ src, onClose, onNext, onPrev }: ImageModalP
         const fullUrl = src.startsWith('http') ? src : `${baseUrl}${src}`;
         
         console.log('Setting full image URL to:', fullUrl);
+        
+        // Try to load the image directly first
         setFullImageUrl(fullUrl);
+        
+        // Also try to load it as an object URL to bypass potential CORS issues
+        loadImageAsObjectUrl(fullUrl).then(success => {
+          if (!success) {
+            console.log('Object URL creation failed, falling back to direct URL');
+          }
+        });
       } catch (err) {
         console.error('Error creating full URL:', err);
         setImageError('Failed to create image URL');
@@ -53,7 +125,7 @@ export default function ImageModal({ src, onClose, onNext, onPrev }: ImageModalP
       document.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = 'unset';
     };
-  }, [src, handleKeyDown]);
+  }, [src, handleKeyDown, loadImageAsObjectUrl]);
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
     console.error('Image failed to load:', fullImageUrl);
@@ -61,24 +133,32 @@ export default function ImageModal({ src, onClose, onNext, onPrev }: ImageModalP
     setImageError(`Failed to load image. URL: ${fullImageUrl}`);
     setImageLoaded(false);
     
-    // Try to diagnose the issue by fetching the image
-    if (fullImageUrl) {
-      console.log('Attempting to fetch image directly to diagnose issue...');
-      fetch(fullImageUrl)
-        .then(response => {
-          console.log('Fetch response status:', response.status);
-          return response.text();
-        })
-        .then(text => {
-          console.log(`Fetch response body: ${text.substring(0, 100)}...`);
-          if (text.includes('error')) {
-            setImageError(`Error from server: ${text.substring(0, 100)}...`);
-          }
-        })
-        .catch(err => {
-          console.error('Fetch error:', err);
-          setImageError(`Network error fetching image: ${err.message}`);
-        });
+    // If we've already tried blob URL and iframe, try direct URL
+    if (useBlobUrl) {
+      setUseBlobUrl(false);
+      return;
+    }
+    
+    // After the first error, switch to iframe mode
+    if (!useIframe && !useBlobUrl) {
+      console.log('Switching to iframe mode for image loading');
+      setUseIframe(true);
+      return;
+    }
+    
+    // Finally, try to load as object URL again with a fresh timestamp
+    const timestamp = Date.now();
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    
+    // Create a URL with a refreshed timestamp
+    let refreshedUrl;
+    if (src && src.includes('api/serve-image')) {
+      const url = new URL(src.startsWith('http') ? src : `${baseUrl}${src}`);
+      url.searchParams.set('t', timestamp.toString());
+      refreshedUrl = url.toString();
+      
+      console.log('Retrying with refreshed URL:', refreshedUrl);
+      loadImageAsObjectUrl(refreshedUrl);
     }
   };
 
@@ -130,59 +210,160 @@ export default function ImageModal({ src, onClose, onNext, onPrev }: ImageModalP
         )}
         
         <div className="relative w-full h-full flex items-center justify-center">
-          {imageError ? (
+          {imageError && !useIframe ? (
             <div className="text-red-500 p-4 bg-black bg-opacity-50 rounded-lg max-w-lg text-center">
               <h3 className="text-xl font-bold mb-2">Error Loading Image</h3>
               <p>{imageError}</p>
               <p className="mt-2 text-sm">Path: {src}</p>
               <p className="mt-1 text-sm">Retry count: {retryCount}</p>
-              <button 
-                onClick={() => {
-                  // Re-attempt to load the image with a new timestamp
-                  setImageError(null);
-                  setImageLoaded(false);
-                  setRetryCount(prevCount => prevCount + 1);
-                  
-                  const timestamp = Date.now();
-                  const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-                  
-                  // Create a URL with a refreshed timestamp
-                  let refreshedUrl;
-                  if (src.includes('api/serve-image')) {
-                    const url = new URL(src.startsWith('http') ? src : `${baseUrl}${src}`);
-                    url.searchParams.set('t', timestamp.toString());
-                    refreshedUrl = url.toString();
-                  } else {
-                    refreshedUrl = src.startsWith('http') 
-                      ? `${src}?t=${timestamp}` 
-                      : `${baseUrl}${src}?t=${timestamp}`;
-                  }
-                  
-                  console.log('Retrying with URL:', refreshedUrl);
-                  setFullImageUrl(refreshedUrl);
-                }}
-                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                Retry Loading
-              </button>
+              <div className="flex flex-wrap justify-center gap-2 mt-4">
+                <button 
+                  onClick={() => {
+                    // Re-attempt to load the image with a new timestamp
+                    setImageError(null);
+                    setImageLoaded(false);
+                    setRetryCount(prevCount => prevCount + 1);
+                    
+                    const timestamp = Date.now();
+                    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+                    
+                    // Create a URL with a refreshed timestamp
+                    let refreshedUrl;
+                    if (src.includes('api/serve-image')) {
+                      const url = new URL(src.startsWith('http') ? src : `${baseUrl}${src}`);
+                      url.searchParams.set('t', timestamp.toString());
+                      refreshedUrl = url.toString();
+                    } else {
+                      refreshedUrl = src.startsWith('http') 
+                        ? `${src}?t=${timestamp}` 
+                        : `${baseUrl}${src}?t=${timestamp}`;
+                    }
+                    
+                    console.log('Retrying with URL:', refreshedUrl);
+                    setFullImageUrl(refreshedUrl);
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Retry Direct Loading
+                </button>
+                <button 
+                  onClick={() => {
+                    setUseIframe(true);
+                    setImageError(null);
+                  }}
+                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                >
+                  Try iframe View
+                </button>
+                <button 
+                  onClick={() => {
+                    setImageError(null);
+                    setRetryCount(prevCount => prevCount + 1);
+                    
+                    const timestamp = Date.now();
+                    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+                    
+                    // Create a URL with a refreshed timestamp
+                    let refreshedUrl;
+                    if (src.includes('api/serve-image')) {
+                      const url = new URL(src.startsWith('http') ? src : `${baseUrl}${src}`);
+                      url.searchParams.set('t', timestamp.toString());
+                      refreshedUrl = url.toString();
+                    } else {
+                      refreshedUrl = src.startsWith('http') 
+                        ? `${src}?t=${timestamp}` 
+                        : `${baseUrl}${src}?t=${timestamp}`;
+                    }
+                    
+                    loadImageAsObjectUrl(refreshedUrl);
+                  }}
+                  className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
+                >
+                  Try Blob URL
+                </button>
+              </div>
             </div>
-          ) : !imageLoaded && fullImageUrl ? (
+          ) : !imageLoaded && !useIframe && fullImageUrl ? (
             <div className="animate-pulse flex flex-col items-center justify-center">
               <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
               <p className="mt-4 text-white">Loading image...</p>
               <p className="mt-2 text-sm text-gray-400">URL: {fullImageUrl?.substring(0, 50)}...</p>
+              <p className="mt-1 text-sm text-gray-400">Using {useBlobUrl ? 'blob URL' : 'direct URL'}</p>
+              <div className="flex gap-2 mt-4">
+                <button 
+                  onClick={() => setUseIframe(true)}
+                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                >
+                  Try iframe View
+                </button>
+                {!useBlobUrl && (
+                  <button 
+                    onClick={() => {
+                      if (src) {
+                        const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+                        const fullUrl = src.startsWith('http') ? src : `${baseUrl}${src}`;
+                        loadImageAsObjectUrl(fullUrl);
+                      }
+                    }}
+                    className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
+                  >
+                    Try Blob URL
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : useIframe && fullImageUrl ? (
+            <div className="relative w-full h-full flex items-center justify-center bg-gray-800">
+              <iframe 
+                src={fullImageUrl}
+                className="w-full h-full border-0"
+                title="Image content"
+                sandbox="allow-same-origin"
+                allowFullScreen
+              />
+              <div className="absolute bottom-4 right-4 flex gap-2">
+                <button 
+                  onClick={() => {
+                    setUseIframe(false);
+                    setUseBlobUrl(false);
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Try Direct Image
+                </button>
+                <button 
+                  onClick={() => {
+                    if (src) {
+                      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+                      const fullUrl = src.startsWith('http') ? src : `${baseUrl}${src}`;
+                      loadImageAsObjectUrl(fullUrl).then(() => {
+                        setUseIframe(false);
+                      });
+                    }
+                  }}
+                  className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
+                >
+                  Try Blob URL
+                </button>
+              </div>
             </div>
           ) : fullImageUrl ? (
             <div className="relative w-full h-full flex items-center justify-center">
-              {/* Using direct img tag with crossOrigin attribute */}
               <img
+                ref={imgRef}
                 src={fullImageUrl}
                 alt="Uploaded image"
                 crossOrigin="anonymous"
                 className="max-h-full max-w-full object-contain"
                 onError={handleImageError}
                 onLoad={handleImageLoad}
+                style={{background: 'transparent'}}
               />
+              {useBlobUrl && (
+                <div className="absolute bottom-2 left-2 bg-green-600 text-white px-2 py-1 text-xs rounded">
+                  Using Blob URL
+                </div>
+              )}
             </div>
           ) : (
             <div className="animate-pulse flex space-x-4">
