@@ -1,34 +1,50 @@
-import { readdir } from 'fs/promises';
 import { NextResponse } from 'next/server';
+import { promises as fs } from 'fs';
 import path from 'path';
 
 export async function GET() {
   console.log('GET /api/images called');
+  
   try {
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads');
-    console.log('Reading upload directory:', uploadDir);
+    // Determine the upload directory based on environment
+    const isDev = process.env.NODE_ENV === 'development';
+    const uploadDir = isDev 
+      ? path.join(process.cwd(), 'public', 'uploads')
+      : '/app/public/uploads';
     
-    try {
-      const files = await readdir(uploadDir);
-      console.log('Files found in uploads directory:', files);
-      const images = files.map(file => `/uploads/${file}`);
-      console.log('Returning image paths:', images);
-      
-      return NextResponse.json({ 
-        success: true,
-        images: images.sort((a, b) => b.localeCompare(a)) // Sort newest first
-      });
-    } catch (err) {
-      console.error('Error reading upload directory:', err);
-      return NextResponse.json({ 
-        success: true,
-        images: [] 
-      });
-    }
+    console.log(`Reading upload directory: ${uploadDir}`);
+    
+    // Get all files in the uploads directory
+    const files = await fs.readdir(uploadDir, { withFileTypes: true });
+    
+    // Filter out directories, only include files
+    const fileNames = files
+      .filter(file => file.isFile())
+      .map(file => file.name);
+    
+    console.log(`Found ${fileNames.length} files in uploads directory:`, fileNames);
+    
+    // Create URLs for each file
+    const imagePaths = fileNames.map(fileName => {
+      // Add a timestamp to bust cache
+      const timestamp = Date.now();
+      return `/uploads/${fileName}?t=${timestamp}`;
+    });
+    
+    console.log('Returning image paths:', imagePaths);
+    
+    return NextResponse.json({ images: imagePaths });
   } catch (error) {
     console.error('Error listing images:', error);
+    
+    // If directory doesn't exist yet, return empty array
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      console.log('Upload directory does not exist yet, returning empty array');
+      return NextResponse.json({ images: [] });
+    }
+    
     return NextResponse.json(
-      { error: 'Error listing images' },
+      { error: 'Failed to list images' },
       { status: 500 }
     );
   }

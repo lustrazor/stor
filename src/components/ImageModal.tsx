@@ -11,6 +11,7 @@ interface ImageModalProps {
 export default function ImageModal({ src, onClose, onNext, onPrev }: ImageModalProps) {
   const [fullImageUrl, setFullImageUrl] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
+  const [imageLoaded, setImageLoaded] = useState(false);
   console.log('ImageModal rendering with src:', src);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -22,15 +23,33 @@ export default function ImageModal({ src, onClose, onNext, onPrev }: ImageModalP
   useEffect(() => {
     console.log('ImageModal mounted/updated with src:', src);
     setImageError(null); // Reset error state when src changes
+    setImageLoaded(false);
     
     // Convert relative path to absolute URL if src exists
     if (src) {
       try {
-        // Make sure we have the full URL including the origin
+        // Add timestamp to avoid caching issues in production
+        const timestamp = Date.now();
         const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-        const fullUrl = src.startsWith('http') ? src : `${baseUrl}${src}`;
+        const fullUrl = src.startsWith('http') 
+          ? `${src}?t=${timestamp}` 
+          : `${baseUrl}${src}?t=${timestamp}`;
+        
         console.log('Setting full image URL to:', fullUrl);
         setFullImageUrl(fullUrl);
+        
+        // Pre-fetch the image to check if it exists
+        fetch(fullUrl)
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            console.log('Image pre-fetch successful:', fullUrl);
+          })
+          .catch(err => {
+            console.error('Image pre-fetch failed:', err);
+            setImageError(`Failed to load image: ${err.message}`);
+          });
       } catch (err) {
         console.error('Error creating full URL:', err);
         setImageError('Failed to create image URL');
@@ -53,6 +72,7 @@ export default function ImageModal({ src, onClose, onNext, onPrev }: ImageModalP
   const handleImageError = () => {
     console.error('Image failed to load:', fullImageUrl);
     setImageError(`Failed to load image. URL: ${fullImageUrl}`);
+    setImageLoaded(false);
     
     // Try to diagnose the issue by fetching the image
     if (fullImageUrl) {
@@ -73,6 +93,7 @@ export default function ImageModal({ src, onClose, onNext, onPrev }: ImageModalP
   const handleImageLoad = () => {
     console.log('Image loaded successfully:', fullImageUrl);
     setImageError(null);
+    setImageLoaded(true);
   };
 
   if (!src) return null;
@@ -121,6 +142,26 @@ export default function ImageModal({ src, onClose, onNext, onPrev }: ImageModalP
               <h3 className="text-xl font-bold mb-2">Error Loading Image</h3>
               <p>{imageError}</p>
               <p className="mt-2 text-sm">Path: {src}</p>
+              <button 
+                onClick={() => {
+                  // Re-attempt to load the image with a new timestamp
+                  setImageError(null);
+                  const timestamp = Date.now();
+                  const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+                  const refreshedUrl = src.startsWith('http') 
+                    ? `${src}?t=${timestamp}` 
+                    : `${baseUrl}${src}?t=${timestamp}`;
+                  setFullImageUrl(refreshedUrl);
+                }}
+                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Retry Loading
+              </button>
+            </div>
+          ) : !imageLoaded && fullImageUrl ? (
+            <div className="animate-pulse flex flex-col items-center justify-center">
+              <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+              <p className="mt-4 text-white">Loading image...</p>
             </div>
           ) : fullImageUrl ? (
             <div className="relative w-full h-full">
