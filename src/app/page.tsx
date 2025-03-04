@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ImageUploader from '@/components/ImageUploader';
 import Gallery from '@/components/Gallery';
 
@@ -9,6 +9,30 @@ export default function Home() {
 
   const handleUploadSuccess = (filename: string) => {
     setImages(prev => [filename, ...prev]);
+  };
+
+  const handleDelete = async (filename: string) => {
+    try {
+      const response = await fetch('/api/delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ filename }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setImages(prev => prev.filter(img => img !== filename));
+      } else {
+        console.error('Failed to delete file:', data.error);
+        alert('Failed to delete file');
+      }
+    } catch (error) {
+      console.error('Error deleting file:', error);
+      alert('Error deleting file');
+    }
   };
 
   return (
@@ -23,7 +47,7 @@ export default function Home() {
         
         <div className="mt-12">
           <h2 className="text-2xl font-semibold mb-6">Uploaded Images</h2>
-          <Gallery images={images} />
+          <Gallery images={images} onDelete={handleDelete} />
         </div>
       </div>
     </main>
