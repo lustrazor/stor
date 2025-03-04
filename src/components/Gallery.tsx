@@ -47,14 +47,13 @@ export default function Gallery({ images, onDelete }: GalleryProps) {
 
   return (
     <div className="mt-8">
-      <h2 className="text-2xl font-bold mb-4">Uploaded Images</h2>
       
       {images.length === 0 ? (
         <p className="text-gray-500">No images uploaded yet.</p>
       ) : (
         <div className="space-y-4">
           {images.map((img) => (
-            <div key={img} className="flex items-center justify-between bg-gray-800 p-4 rounded-lg">
+            <div key={img} className="flex items-center justify-between bg-gray-800 p-4 rounded-lg hover:bg-gray-700 transition-colors">
               <div className="flex items-center space-x-4">
                 <button 
                   onClick={() => handleImageSelect(img)}

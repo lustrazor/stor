@@ -1,5 +1,4 @@
 import { useEffect, useCallback, useState } from 'react';
-import Image from 'next/image';
 
 interface ImageModalProps {
   src: string | null;
@@ -12,6 +11,7 @@ export default function ImageModal({ src, onClose, onNext, onPrev }: ImageModalP
   const [fullImageUrl, setFullImageUrl] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   console.log('ImageModal rendering with src:', src);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -24,6 +24,7 @@ export default function ImageModal({ src, onClose, onNext, onPrev }: ImageModalP
     console.log('ImageModal mounted/updated with src:', src);
     setImageError(null); // Reset error state when src changes
     setImageLoaded(false);
+    setRetryCount(0);
     
     // Convert relative path to absolute URL if src exists
     if (src) {
@@ -35,19 +36,6 @@ export default function ImageModal({ src, onClose, onNext, onPrev }: ImageModalP
         
         console.log('Setting full image URL to:', fullUrl);
         setFullImageUrl(fullUrl);
-        
-        // Pre-fetch the image to check if it exists
-        fetch(fullUrl)
-          .then(response => {
-            if (!response.ok) {
-              throw new Error(`HTTP error! Status: ${response.status}`);
-            }
-            console.log('Image pre-fetch successful:', fullUrl);
-          })
-          .catch(err => {
-            console.error('Image pre-fetch failed:', err);
-            setImageError(`Failed to load image: ${err.message}`);
-          });
       } catch (err) {
         console.error('Error creating full URL:', err);
         setImageError('Failed to create image URL');
@@ -67,18 +55,24 @@ export default function ImageModal({ src, onClose, onNext, onPrev }: ImageModalP
     };
   }, [src, handleKeyDown]);
 
-  const handleImageError = () => {
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
     console.error('Image failed to load:', fullImageUrl);
+    console.error('Error event:', e);
     setImageError(`Failed to load image. URL: ${fullImageUrl}`);
     setImageLoaded(false);
     
     // Try to diagnose the issue by fetching the image
     if (fullImageUrl) {
+      console.log('Attempting to fetch image directly to diagnose issue...');
       fetch(fullImageUrl)
         .then(response => {
-          if (!response.ok) {
-            console.error(`Image fetch failed with status: ${response.status}`);
-            setImageError(`Image fetch failed with status: ${response.status}`);
+          console.log('Fetch response status:', response.status);
+          return response.text();
+        })
+        .then(text => {
+          console.log(`Fetch response body: ${text.substring(0, 100)}...`);
+          if (text.includes('error')) {
+            setImageError(`Error from server: ${text.substring(0, 100)}...`);
           }
         })
         .catch(err => {
@@ -88,8 +82,9 @@ export default function ImageModal({ src, onClose, onNext, onPrev }: ImageModalP
     }
   };
 
-  const handleImageLoad = () => {
+  const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     console.log('Image loaded successfully:', fullImageUrl);
+    console.log('Image size:', (e.target as HTMLImageElement).naturalWidth, 'x', (e.target as HTMLImageElement).naturalHeight);
     setImageError(null);
     setImageLoaded(true);
   };
@@ -140,25 +135,30 @@ export default function ImageModal({ src, onClose, onNext, onPrev }: ImageModalP
               <h3 className="text-xl font-bold mb-2">Error Loading Image</h3>
               <p>{imageError}</p>
               <p className="mt-2 text-sm">Path: {src}</p>
+              <p className="mt-1 text-sm">Retry count: {retryCount}</p>
               <button 
                 onClick={() => {
                   // Re-attempt to load the image with a new timestamp
                   setImageError(null);
+                  setImageLoaded(false);
+                  setRetryCount(prevCount => prevCount + 1);
+                  
                   const timestamp = Date.now();
                   const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-                  // Create a new URL with an updated timestamp
+                  
+                  // Create a URL with a refreshed timestamp
                   let refreshedUrl;
                   if (src.includes('api/serve-image')) {
-                    // Update the timestamp in the query params
                     const url = new URL(src.startsWith('http') ? src : `${baseUrl}${src}`);
                     url.searchParams.set('t', timestamp.toString());
                     refreshedUrl = url.toString();
                   } else {
-                    // Fallback for old URLs
                     refreshedUrl = src.startsWith('http') 
                       ? `${src}?t=${timestamp}` 
                       : `${baseUrl}${src}?t=${timestamp}`;
                   }
+                  
+                  console.log('Retrying with URL:', refreshedUrl);
                   setFullImageUrl(refreshedUrl);
                 }}
                 className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
@@ -170,13 +170,16 @@ export default function ImageModal({ src, onClose, onNext, onPrev }: ImageModalP
             <div className="animate-pulse flex flex-col items-center justify-center">
               <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
               <p className="mt-4 text-white">Loading image...</p>
+              <p className="mt-2 text-sm text-gray-400">URL: {fullImageUrl?.substring(0, 50)}...</p>
             </div>
           ) : fullImageUrl ? (
-            <div className="relative w-full h-full">
+            <div className="relative w-full h-full flex items-center justify-center">
+              {/* Using direct img tag with crossOrigin attribute */}
               <img
                 src={fullImageUrl}
                 alt="Uploaded image"
-                className="object-contain w-full h-full"
+                crossOrigin="anonymous"
+                className="max-h-full max-w-full object-contain"
                 onError={handleImageError}
                 onLoad={handleImageLoad}
               />

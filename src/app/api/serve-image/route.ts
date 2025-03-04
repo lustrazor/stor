@@ -44,33 +44,44 @@ export async function GET(request: NextRequest) {
     if (!existsSync(filePath)) {
       console.error(`File not found: ${filePath}`);
       return NextResponse.json(
-        { error: 'File not found' },
+        { error: `File not found: ${filename}` },
         { status: 404 }
       );
     }
     
-    // Read the file
-    const fileBuffer = await fsPromises.readFile(filePath);
-    
-    // Determine the content type based on file extension
-    const ext = path.extname(filePath).toLowerCase();
-    const contentType = mimeTypes[ext] || 'application/octet-stream';
-    
-    console.log(`Serving ${filename} as ${contentType}, size: ${fileBuffer.length} bytes`);
-    
-    // Return the file with appropriate headers
-    return new NextResponse(fileBuffer, {
-      headers: {
-        'Content-Type': contentType,
-        'Content-Length': fileBuffer.length.toString(),
-        'Cache-Control': 'public, max-age=0, must-revalidate',
-        'Access-Control-Allow-Origin': '*',
-      },
-    });
+    try {
+      // Read the file
+      const fileBuffer = await fsPromises.readFile(filePath);
+      
+      // Determine the content type based on file extension
+      const ext = path.extname(filePath).toLowerCase();
+      const contentType = mimeTypes[ext] || 'application/octet-stream';
+      
+      console.log(`Serving ${filename} as ${contentType}, size: ${fileBuffer.length} bytes`);
+      
+      // Return the file with appropriate headers to avoid caching issues
+      return new NextResponse(fileBuffer, {
+        headers: {
+          'Content-Type': contentType,
+          'Content-Length': fileBuffer.length.toString(),
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET',
+        },
+      });
+    } catch (readError) {
+      console.error(`Error reading file ${filename}:`, readError);
+      return NextResponse.json(
+        { error: `Error reading file: ${(readError as Error).message}` },
+        { status: 500 }
+      );
+    }
   } catch (error) {
     console.error('Error serving image:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: `Internal server error: ${(error as Error).message}` },
       { status: 500 }
     );
   }
