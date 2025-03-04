@@ -30,25 +30,26 @@ ENV NEXT_TELEMETRY_DISABLED 1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Create uploads directory and set permissions
-RUN mkdir -p /app/public/uploads
-RUN chown -R nextjs:nodejs /app/public/uploads
-RUN chmod 755 /app/public/uploads
+# Create necessary directories
+RUN mkdir -p /app/public/uploads /app/initial-uploads
+RUN chown -R nextjs:nodejs /app/public
 
-# Copy public directory first
+# Copy public directory first and preserve initial uploads
+COPY --from=builder /app/public/uploads /app/initial-uploads
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
-# Set proper permissions for the public directory
-RUN chown -R nextjs:nodejs /app/public
-RUN chmod -R 755 /app/public
+# Copy and set up entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-USER nextjs
+USER root
 
 EXPOSE 3000
 
 ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
 
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["node", "server.js"] 

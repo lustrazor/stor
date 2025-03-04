@@ -12,6 +12,7 @@ services:
     environment:
       - NODE_ENV=production
     restart: unless-stopped
+    user: "1001:1001"  # Run as nextjs user
 
 volumes:
   uploads:
