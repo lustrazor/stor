@@ -7,6 +7,22 @@ import Gallery from '@/components/Gallery';
 export default function Home() {
   const [images, setImages] = useState<string[]>([]);
 
+  const fetchImages = async () => {
+    try {
+      const response = await fetch('/api/images');
+      const data = await response.json();
+      if (data.success) {
+        setImages(data.images);
+      }
+    } catch (error) {
+      console.error('Error fetching images:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchImages();
+  }, []);
+
   const handleUploadSuccess = (filename: string) => {
     setImages(prev => [filename, ...prev]);
   };
