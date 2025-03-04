@@ -7,21 +7,15 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // Ensure uploads are served as static files
-  async rewrites() {
-    return [
-      {
-        source: '/uploads/:path*',
-        destination: '/public/uploads/:path*',
-      },
-    ];
-  },
   // Configure static file serving
   assetPrefix: '',
   basePath: '',
-  publicRuntimeConfig: {
-    staticFolder: '/public',
-  },
+  // Serve static files from the public directory
+  experimental: {
+    outputFileTracingIncludes: {
+      '/**': ['./public/**/*']
+    }
+  }
 }
 
 module.exports = nextConfig

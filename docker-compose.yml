@@ -8,9 +8,10 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - uploads:/app/public/uploads
+      - uploads:/app/public/uploads:rw
     environment:
       - NODE_ENV=production
+    restart: unless-stopped
 
 volumes:
   uploads:

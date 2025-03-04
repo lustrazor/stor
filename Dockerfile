@@ -33,10 +33,16 @@ RUN adduser --system --uid 1001 nextjs
 # Create uploads directory and set permissions
 RUN mkdir -p /app/public/uploads
 RUN chown -R nextjs:nodejs /app/public/uploads
+RUN chmod 755 /app/public/uploads
 
+# Copy public directory first
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+
+# Set proper permissions for the public directory
+RUN chown -R nextjs:nodejs /app/public
+RUN chmod -R 755 /app/public
 
 USER nextjs
 
