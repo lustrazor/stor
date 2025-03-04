@@ -29,22 +29,22 @@ WORKDIR /app
 
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
+# Enable more verbose logging
+ENV NODE_OPTIONS='--trace-warnings'
+ENV NODE_DEBUG='http,net,stream,fs'
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Create necessary directories
-#RUN mkdir -p /app/public/uploads
-RUN chown -R nextjs:nodejs /app
+# Create necessary directories and logs directory
+RUN mkdir -p /app/public/uploads /app/logs && \
+    chown -R nextjs:nodejs /app && \
+    chmod -R 755 /app/public/uploads
 
 # Copy public directory and other files
-#COPY --from=builder /app/public ./public
+COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
-
-# Set proper permissions
-#RUN chown -R nextjs:nodejs /app/public/uploads && \
-#    chmod -R 755 /app/public/uploads
 
 USER nextjs
 
@@ -53,4 +53,5 @@ EXPOSE 3000
 ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
 
-CMD ["node", "server.js"] 
+# Start with logging enabled
+CMD ["sh", "-c", "node server.js 2>&1 | tee -a /app/logs/app.log"] 
