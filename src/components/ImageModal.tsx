@@ -28,12 +28,10 @@ export default function ImageModal({ src, onClose, onNext, onPrev }: ImageModalP
     // Convert relative path to absolute URL if src exists
     if (src) {
       try {
-        // Add timestamp to avoid caching issues in production
-        const timestamp = Date.now();
+        // The src should already be a proper API route with a timestamp
+        // but we'll make sure it has the full origin
         const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-        const fullUrl = src.startsWith('http') 
-          ? `${src}?t=${timestamp}` 
-          : `${baseUrl}${src}?t=${timestamp}`;
+        const fullUrl = src.startsWith('http') ? src : `${baseUrl}${src}`;
         
         console.log('Setting full image URL to:', fullUrl);
         setFullImageUrl(fullUrl);
@@ -148,9 +146,19 @@ export default function ImageModal({ src, onClose, onNext, onPrev }: ImageModalP
                   setImageError(null);
                   const timestamp = Date.now();
                   const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-                  const refreshedUrl = src.startsWith('http') 
-                    ? `${src}?t=${timestamp}` 
-                    : `${baseUrl}${src}?t=${timestamp}`;
+                  // Create a new URL with an updated timestamp
+                  let refreshedUrl;
+                  if (src.includes('api/serve-image')) {
+                    // Update the timestamp in the query params
+                    const url = new URL(src.startsWith('http') ? src : `${baseUrl}${src}`);
+                    url.searchParams.set('t', timestamp.toString());
+                    refreshedUrl = url.toString();
+                  } else {
+                    // Fallback for old URLs
+                    refreshedUrl = src.startsWith('http') 
+                      ? `${src}?t=${timestamp}` 
+                      : `${baseUrl}${src}?t=${timestamp}`;
+                  }
                   setFullImageUrl(refreshedUrl);
                 }}
                 className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
@@ -165,13 +173,10 @@ export default function ImageModal({ src, onClose, onNext, onPrev }: ImageModalP
             </div>
           ) : fullImageUrl ? (
             <div className="relative w-full h-full">
-              <Image
+              <img
                 src={fullImageUrl}
                 alt="Uploaded image"
-                fill
-                unoptimized
-                priority
-                style={{ objectFit: 'contain' }}
+                className="object-contain w-full h-full"
                 onError={handleImageError}
                 onLoad={handleImageLoad}
               />

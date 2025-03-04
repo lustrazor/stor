@@ -24,11 +24,11 @@ export async function GET() {
     
     console.log(`Found ${fileNames.length} files in uploads directory:`, fileNames);
     
-    // Create URLs for each file
+    // Create URLs for each file using our API route
     const imagePaths = fileNames.map(fileName => {
       // Add a timestamp to bust cache
       const timestamp = Date.now();
-      return `/uploads/${fileName}?t=${timestamp}`;
+      return `/api/serve-image?file=${fileName}&t=${timestamp}`;
     });
     
     console.log('Returning image paths:', imagePaths);

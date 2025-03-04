@@ -58,8 +58,25 @@ export default function Home() {
 
   const handleDelete = async (imagePath: string) => {
     try {
-      // Extract filename from path (remove /uploads/ prefix and any query params)
-      const filename = imagePath.replace('/uploads/', '').split('?')[0];
+      // Extract filename from the image path
+      let filename = '';
+      
+      if (imagePath.includes('api/serve-image')) {
+        // Extract filename from the API route URL
+        const url = new URL(imagePath.startsWith('http') 
+          ? imagePath 
+          : `${window.location.origin}${imagePath}`);
+        filename = url.searchParams.get('file') || '';
+      } else {
+        // Legacy path format (/uploads/filename.jpg)
+        filename = imagePath.replace('/uploads/', '').split('?')[0];
+      }
+      
+      if (!filename) {
+        console.error('Could not extract filename from path:', imagePath);
+        return;
+      }
+      
       console.log('Deleting image:', filename);
       
       const response = await fetch('/api/delete', {
