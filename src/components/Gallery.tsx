@@ -54,12 +54,19 @@ export default function Gallery({ images, onDelete }: GalleryProps) {
         <div className="space-y-4">
           {images.map((img) => (
             <div key={img} className="flex items-center justify-between bg-gray-800 p-4 rounded-lg hover:bg-gray-700 transition-colors">
-              <div className="flex items-center space-x-4">
-                <button 
-                  onClick={() => handleImageSelect(img)}
-                  className="h-16 w-16 bg-gray-700 rounded overflow-hidden flex items-center justify-center"
-                  aria-label={`View ${extractFilename(img)}`}
-                >
+              <div 
+                className="flex items-center space-x-4 flex-grow cursor-pointer"
+                onClick={() => handleImageSelect(img)}
+                role="button"
+                tabIndex={0}
+                aria-label={`View ${extractFilename(img)}`}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    handleImageSelect(img);
+                  }
+                }}
+              >
+                <div className="h-16 w-16 bg-gray-700 rounded overflow-hidden flex items-center justify-center">
                   <Image 
                     src={img} 
                     alt={extractFilename(img)} 
@@ -71,14 +78,17 @@ export default function Gallery({ images, onDelete }: GalleryProps) {
                       console.error('Thumbnail failed to load:', img);
                     }}
                   />
-                </button>
+                </div>
                 <span className="text-gray-300">{extractFilename(img)}</span>
               </div>
               
               {onDelete && (
                 <button
-                  onClick={() => onDelete(img)}
-                  className="text-red-500 hover:text-red-400"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(img);
+                  }}
+                  className="text-red-500 hover:text-red-400 ml-4"
                   aria-label={`Delete ${extractFilename(img)}`}
                 >
                   Delete
