@@ -10,11 +10,8 @@ const nextConfig = {
   // Configure static file serving
   assetPrefix: '',
   basePath: '',
-  // Serve static files from the public directory
-  experimental: {
-    outputFileTracingIncludes: {
-      '/**': ['./public/**/*']
-    }
+  outputFileTracingIncludes: {
+    '/**': ['./public/**/*']
   }
 }
 

@@ -15,6 +15,9 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Create uploads directory in builder stage
+RUN mkdir -p /app/public/uploads
+
 # Next.js collects anonymous telemetry data about general usage
 ENV NEXT_TELEMETRY_DISABLED 1
 
@@ -31,25 +34,23 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
 # Create necessary directories
-RUN mkdir -p /app/public/uploads /app/initial-uploads
-RUN chown -R nextjs:nodejs /app/public
+RUN mkdir -p /app/public/uploads
+RUN chown -R nextjs:nodejs /app
 
-# Copy public directory first and preserve initial uploads
-COPY --from=builder /app/public/uploads /app/initial-uploads
+# Copy public directory and other files
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
-# Copy and set up entrypoint script
-COPY docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+# Set proper permissions
+RUN chown -R nextjs:nodejs /app/public/uploads && \
+    chmod -R 755 /app/public/uploads
 
-USER root
+USER nextjs
 
 EXPOSE 3000
 
 ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
 
-ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["node", "server.js"] 
