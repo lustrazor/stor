@@ -32,23 +32,6 @@ const nextConfig = {
       },
     ];
   },
-  // Configure static file serving middleware
-  webpack: (config, { isServer }) => {
-    // Add rule for handling static files
-    config.module.rules.push({
-      test: /\.(jpg|jpeg|png|gif|ico|svg)$/,
-      use: [
-        {
-          loader: 'file-loader',
-          options: {
-            publicPath: '/_next/static/images',
-            outputPath: 'static/images',
-          },
-        },
-      ],
-    });
-    return config;
-  },
 }
 
 module.exports = nextConfig
