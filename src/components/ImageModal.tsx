@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 
 interface ImageModalProps {
   src: string | null;
@@ -8,6 +8,7 @@ interface ImageModalProps {
 }
 
 export default function ImageModal({ src, onClose, onNext, onPrev }: ImageModalProps) {
+  const [imageError, setImageError] = useState<string | null>(null);
   console.log('ImageModal rendering with src:', src);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -18,6 +19,7 @@ export default function ImageModal({ src, onClose, onNext, onPrev }: ImageModalP
 
   useEffect(() => {
     console.log('ImageModal mounted/updated with src:', src);
+    setImageError(null); // Reset error state when src changes
     document.addEventListener('keydown', handleKeyDown);
     // Prevent scrolling when modal is open
     document.body.style.overflow = 'hidden';
@@ -72,13 +74,35 @@ export default function ImageModal({ src, onClose, onNext, onPrev }: ImageModalP
           className="relative aspect-[16/9] max-h-[85vh]"
           onClick={(e) => e.stopPropagation()}
         >
-          <img
-            src={src}
-            alt="Modal view"
-            className="w-full h-full object-contain"
-            onError={(e) => console.error('Image failed to load:', src, e)}
-            onLoad={() => console.log('Image loaded successfully:', src)}
-          />
+          {imageError ? (
+            <div className="absolute inset-0 flex items-center justify-center text-white">
+              <p>Error loading image: {imageError}</p>
+            </div>
+          ) : (
+            <img
+              src={src}
+              alt="Modal view"
+              className="w-full h-full object-contain"
+              onError={(e) => {
+                console.error('Image failed to load:', src, e);
+                setImageError('Failed to load image');
+                // Try to fetch the image directly to see if it's accessible
+                fetch(src)
+                  .then(response => {
+                    if (!response.ok) {
+                      throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.blob();
+                  })
+                  .then(() => console.log('Image is accessible via fetch'))
+                  .catch(error => console.error('Image fetch error:', error));
+              }}
+              onLoad={() => {
+                console.log('Image loaded successfully:', src);
+                setImageError(null);
+              }}
+            />
+          )}
         </div>
       </div>
     </div>

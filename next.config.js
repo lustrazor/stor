@@ -10,9 +10,24 @@ const nextConfig = {
   // Configure static file serving
   assetPrefix: '',
   basePath: '',
+  // Ensure public directory is included in the build
   outputFileTracingIncludes: {
     '/**': ['./public/**/*']
-  }
+  },
+  // Add custom headers for static files
+  async headers() {
+    return [
+      {
+        source: '/uploads/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=0, must-revalidate',
+          },
+        ],
+      },
+    ];
+  },
 }
 
 module.exports = nextConfig

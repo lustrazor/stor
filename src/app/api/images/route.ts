@@ -3,12 +3,16 @@ import { NextResponse } from 'next/server';
 import path from 'path';
 
 export async function GET() {
+  console.log('GET /api/images called');
   try {
     const uploadDir = path.join(process.cwd(), 'public', 'uploads');
+    console.log('Reading upload directory:', uploadDir);
     
     try {
       const files = await readdir(uploadDir);
+      console.log('Files found in uploads directory:', files);
       const images = files.map(file => `/uploads/${file}`);
+      console.log('Returning image paths:', images);
       
       return NextResponse.json({ 
         success: true,
