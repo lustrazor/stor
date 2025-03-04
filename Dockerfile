@@ -43,8 +43,8 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
 # Set proper permissions
-RUN chown -R nextjs:nodejs /app/public/uploads && \
-    chmod -R 755 /app/public/uploads
+#RUN chown -R nextjs:nodejs /app/public/uploads && \
+#    chmod -R 755 /app/public/uploads
 
 USER nextjs
 
