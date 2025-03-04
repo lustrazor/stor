@@ -3,16 +3,7 @@ const nextConfig = {
   output: 'standalone',
   images: {
     unoptimized: true,  // Disable image optimization for uploaded files
-    remotePatterns: [
-      {
-        protocol: 'http',
-        hostname: '**',
-      },
-      {
-        protocol: 'https',
-        hostname: '**',
-      }
-    ],
+    domains: ['localhost'], // Allow serving from localhost
   },
   eslint: {
     ignoreDuringBuilds: true,
@@ -28,4 +19,4 @@ const nextConfig = {
   },
 }
 
-module.exports = nextConfig 
+module.exports = nextConfig
