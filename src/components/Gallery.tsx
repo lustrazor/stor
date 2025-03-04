@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Image from 'next/image';
 import ImageModal from './ImageModal';
 
 interface GalleryProps {
@@ -9,6 +10,7 @@ interface GalleryProps {
 export default function Gallery({ images, onDelete }: GalleryProps) {
   console.log('Gallery rendering with images:', images);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<Record<string, boolean>>({});
   
   if (images.length === 0) {
     return (
@@ -44,7 +46,17 @@ export default function Gallery({ images, onDelete }: GalleryProps) {
 
   const handleImageSelect = (src: string) => {
     console.log('Selecting image:', src);
-    setSelectedImage(src);
+    // Try to prefetch the image before showing modal
+    const img = document.createElement('img');
+    img.src = src;
+    img.onload = () => {
+      console.log('Image preloaded successfully:', src);
+      setSelectedImage(src);
+    };
+    img.onerror = () => {
+      console.error('Failed to preload image:', src);
+      setImageError(prev => ({ ...prev, [src]: true }));
+    };
   };
 
   return (
@@ -52,17 +64,38 @@ export default function Gallery({ images, onDelete }: GalleryProps) {
       <div className="space-y-2">
         {images.map((src) => {
           const filename = getFilenameFromPath(src);
+          const fullSrc = src.startsWith('http') ? src : `${window.location.origin}${src}`;
+          
           return (
             <div 
               key={src} 
               className="flex items-center justify-between p-3 bg-white rounded-lg shadow hover:bg-gray-50"
             >
-              <button
-                onClick={() => handleImageSelect(src)}
-                className="font-mono text-sm text-gray-600 hover:text-gray-900"
-              >
-                {filename}
-              </button>
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 relative overflow-hidden rounded">
+                  {!imageError[src] ? (
+                    <Image
+                      src={fullSrc}
+                      alt={filename}
+                      width={48}
+                      height={48}
+                      className="object-cover"
+                      onError={() => setImageError(prev => ({ ...prev, [src]: true }))}
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400 text-xs">
+                      Error
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => handleImageSelect(fullSrc)}
+                  className="font-mono text-sm text-gray-600 hover:text-gray-900"
+                >
+                  {filename}
+                </button>
+              </div>
               {onDelete && (
                 <button
                   onClick={() => onDelete(src)}
