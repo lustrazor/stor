@@ -8,6 +8,8 @@ interface ImageModalProps {
 }
 
 export default function ImageModal({ src, onClose, onNext, onPrev }: ImageModalProps) {
+  console.log('ImageModal rendering with src:', src);
+
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') onClose();
     if (e.key === 'ArrowRight' && onNext) onNext();
@@ -15,15 +17,17 @@ export default function ImageModal({ src, onClose, onNext, onPrev }: ImageModalP
   }, [onClose, onNext, onPrev]);
 
   useEffect(() => {
+    console.log('ImageModal mounted/updated with src:', src);
     document.addEventListener('keydown', handleKeyDown);
     // Prevent scrolling when modal is open
     document.body.style.overflow = 'hidden';
     
     return () => {
+      console.log('ImageModal cleanup');
       document.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = 'unset';
     };
-  }, [handleKeyDown]);
+  }, [handleKeyDown, src]);
 
   if (!src) return null;
 
@@ -72,6 +76,8 @@ export default function ImageModal({ src, onClose, onNext, onPrev }: ImageModalP
             src={src}
             alt="Modal view"
             className="w-full h-full object-contain"
+            onError={(e) => console.error('Image failed to load:', src, e)}
+            onLoad={() => console.log('Image loaded successfully:', src)}
           />
         </div>
       </div>
