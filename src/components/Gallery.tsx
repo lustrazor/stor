@@ -4,7 +4,7 @@ import ImageModal from './ImageModal';
 
 interface GalleryProps {
   images: string[];
-  onDelete?: (filename: string) => void;
+  onDelete?: (imgPath: string) => void;
 }
 
 export default function Gallery({ images, onDelete }: GalleryProps) {
