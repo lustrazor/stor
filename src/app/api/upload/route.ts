@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     // Ensure unique filename
     const timestamp = Date.now();
     const filename = `${timestamp}-${file.name}`;
-    const uploadDir = path.join(process.cwd(), 'public/uploads');
+    const uploadDir = path.join(process.cwd(), 'public', 'uploads');
     
     // Create upload directory if it doesn't exist
     try {
@@ -45,9 +45,12 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // Return the public URL path
+    const publicPath = `/uploads/${filename}`;
+    
     return NextResponse.json({ 
       success: true,
-      filename: `/uploads/${filename}`
+      filename: publicPath
     });
     
   } catch (error) {

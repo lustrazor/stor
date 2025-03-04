@@ -17,7 +17,7 @@ export default function Gallery({ images }: GalleryProps) {
         <div key={src} className="relative aspect-square overflow-hidden rounded-lg shadow-md">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={src}
+            src={src.startsWith('/') ? src : `/${src}`}
             alt={`Uploaded image ${index + 1}`}
             className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
           />

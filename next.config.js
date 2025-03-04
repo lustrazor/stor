@@ -3,7 +3,6 @@ const nextConfig = {
   output: 'standalone',
   images: {
     unoptimized: true,  // Disable image optimization for uploaded files
-    domains: ['localhost'], // Allow serving from localhost
   },
   eslint: {
     ignoreDuringBuilds: true,
@@ -16,6 +15,12 @@ const nextConfig = {
         destination: '/public/uploads/:path*',
       },
     ];
+  },
+  // Configure static file serving
+  assetPrefix: '',
+  basePath: '',
+  publicRuntimeConfig: {
+    staticFolder: '/public',
   },
 }
 
