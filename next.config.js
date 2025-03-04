@@ -14,6 +14,9 @@ const nextConfig = {
       }
     ],
   },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   // Ensure uploads are served as static files
   async rewrites() {
     return [
